@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Análisis Financiero Semanal — Pesquera</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root{
+  --navy:#1B2A4A;--teal:#0F6E56;--teal-l:#E1F5EE;
+  --red:#A32D2D;--red-l:#FCEBEB;--amber:#854F0B;--amber-l:#FAEEDA;
+  --border:rgba(0,0,0,0.09);--bg:#F8F7F4;--bg2:#FFFFFF;
+  --text:#1a1a18;--text2:#5F5E5A;--text3:#888780;
+  --gray-h:#F4F3F0;--r:10px;--rl:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:14px}
+.top-bar{background:var(--navy);color:#fff;padding:0 2rem;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100}
+.top-bar h1{font-size:15px;font-weight:600;display:flex;align-items:center;gap:10px}
+.top-bar h1 span{opacity:.5;font-weight:400}
+.badge{font-size:11px;padding:4px 10px;border-radius:6px;background:rgba(255,255,255,.12);color:rgba(255,255,255,.85)}
+.main{max-width:1200px;margin:0 auto;padding:1.5rem 1.5rem 3rem}
+.upload-bar{display:flex;align-items:center;justify-content:space-between;background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:.85rem 1.25rem;margin-bottom:1rem}
+.upload-btn{font-size:12px;padding:6px 14px;border-radius:var(--r);border:1px solid var(--border);cursor:pointer;color:var(--text2);background:var(--gray-h);white-space:nowrap}
+.status{display:none;align-items:center;gap:10px;padding:10px 14px;border-radius:var(--r);font-size:13px;margin-bottom:1.25rem}
+.status.ok{display:flex;background:var(--teal-l);color:var(--teal)}
+.status.err{display:flex;background:var(--red-l);color:var(--red)}
+.status.load{display:flex;background:var(--amber-l);color:var(--amber)}
+.tab-bar{display:flex;gap:2px;background:var(--gray-h);border-radius:var(--r);padding:3px;margin-bottom:1.25rem}
+.tab{flex:1;padding:7px;border-radius:8px;border:none;font-size:12px;cursor:pointer;color:var(--text2);background:transparent;font-family:inherit;transition:background .15s}
+.tab.active{background:var(--bg2);color:var(--text);font-weight:600;border:1px solid var(--border)}
+.sec{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.75rem;display:flex;align-items:center;gap:10px}
+.sec::after{content:'';flex:1;height:1px;background:var(--border)}
+.g4{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:1.25rem}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:1.1rem 1.25rem}
+.mc{background:var(--gray-h);border-radius:var(--r);padding:.9rem 1rem}
+.mc .ml{font-size:11px;color:var(--text3);margin-bottom:5px}
+.mc .mv{font-size:20px;font-weight:700;color:var(--text)}
+.mc .ms{font-size:11px;color:var(--text3);margin-top:3px}
+.ri{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px}
+.ri:last-child{border-bottom:none}
+.rl{color:var(--text2);flex:1}
+.rv{font-weight:600;text-align:right;min-width:90px;font-size:12px;color:var(--text)}
+.ri-tot{display:flex;justify-content:space-between;padding:8px 0;border-top:2px solid var(--border);margin-top:4px;font-size:13px;font-weight:700}
+.chip{display:inline-block;font-size:10px;padding:1px 6px;border-radius:4px;font-weight:500;margin-left:4px}
+.chip-up{background:var(--teal-l);color:var(--teal)}
+.chip-dn{background:var(--red-l);color:var(--red)}
+.chip-flat{background:var(--gray-h);color:var(--text3)}
+.footer{text-align:center;font-size:11px;color:var(--text3);margin-top:2rem;padding-top:1.5rem;border-top:1px solid var(--border)}
+.hidden{display:none!important}
+@media(max-width:700px){.g2{grid-template-columns:1fr}.main{padding:1rem}}
+</style>
+</head>
+<body>
+<div class="top-bar">
+  <h1>📊 Análisis Financiero <span>Semanal — Pesquera</span></h1>
+  <div style="display:flex;gap:8px">
+    <span class="badge" id="fecha-badge"></span>
+  </div>
+</div>
+
+<div class="main">
+  <div class="upload-bar">
+    <div style="display:flex;align-items:center;gap:10px;font-size:13px">
+      <span id="auto-icon" style="font-size:18px">⏳</span>
+      <span id="auto-msg" style="color:var(--text2)">Cargando datos desde el repositorio...</span>
+    </div>
+    <label class="upload-btn">
+      Actualizar archivo
+      <input type="file" accept=".xlsx" id="file-input" style="display:none">
+    </label>
+  </div>
+
+  <div class="status" id="status-msg"></div>
+
+  <div id="dash-content" class="hidden">
+    <div class="tab-bar">
+      <button class="tab active" onclick="setSemana(1)">Semana 1</button>
+      <button class="tab" onclick="setSemana(2)">Semana 2</button>
+      <button class="tab" onclick="setSemana(3)">Semana 3</button>
+      <button class="tab" onclick="setSemana(4)">Semana 4</button>
+      <button class="tab" onclick="setSemana(0)">Resumen mes</button>
+    </div>
+
+    <!-- VISTA SEMANA -->
+    <div id="vista-semana">
+      <div class="g4" id="kpis"></div>
+      <div class="g2">
+        <div class="card">
+          <div class="sec">Disponibilidades</div>
+          <div id="disp-list"></div>
+          <div class="ri-tot"><span>Total al cierre</span><span id="disp-total">–</span></div>
+        </div>
+        <div class="card">
+          <div class="sec">Erogaciones</div>
+          <div id="erog-list"></div>
+          <div class="ri-tot"><span>Total ejecutado</span><span id="erog-total" style="color:var(--red)">–</span></div>
+        </div>
+      </div>
+      <div class="g2">
+        <div class="card">
+          <div class="sec">Variación disponibilidades (USD)</div>
+          <div style="position:relative;width:100%;height:220px">
+            <canvas id="cDisp" role="img" aria-label="Variación disponibilidades">Variación disponibilidades.</canvas>
+          </div>
+        </div>
+        <div class="card">
+          <div class="sec">Presupuestado vs ejecutado</div>
+          <div style="position:relative;width:100%;height:220px">
+            <canvas id="cErog" role="img" aria-label="Presupuestado vs ejecutado">Erogaciones comparativas.</canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VISTA RESUMEN -->
+    <div id="vista-resumen" class="hidden">
+      <div class="g4" id="kpis-res"></div>
+      <div class="card" style="margin-bottom:1.25rem">
+        <div class="sec">Disponibilidades al cierre — evolución semanal (USD)</div>
+        <div style="position:relative;width:100%;height:240px">
+          <canvas id="cResDisp" role="img" aria-label="Evolución disponibilidades por semana">Evolución disponibilidades.</canvas>
+        </div>
+      </div>
+      <div class="g2">
+        <div class="card">
+          <div class="sec">Erogaciones ejecutadas por semana</div>
+          <div style="position:relative;width:100%;height:220px">
+            <canvas id="cResErog" role="img" aria-label="Erogaciones por semana">Erogaciones por semana.</canvas>
+          </div>
+        </div>
+        <div class="card">
+          <div class="sec">Saldo neto por semana (USD)</div>
+          <div style="position:relative;width:100%;height:220px">
+            <canvas id="cResSaldo" role="img" aria-label="Saldo neto por semana">Saldo neto.</canvas>
+          </div>
+        </div>
+      </div>
+      <div class="g2">
+        <div class="card">
+          <div class="sec">Total erogaciones del mes por rubro</div>
+          <div id="erog-mes-list"></div>
+        </div>
+        <div class="card">
+          <div class="sec">Presupuestado vs ejecutado — mes completo</div>
+          <div style="position:relative;width:100%;height:220px">
+            <canvas id="cResPvE" role="img" aria-label="PvE mes completo">PvE mes.</canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">Análisis Financiero Semanal · Empresa Pesquera · Valores en USD</div>
+</div>
+
+<script>
+const usd = v => {
+  if(v==null||isNaN(v)) return '–';
+  const a=Math.abs(v),s=v<0?'-':'';
+  if(a>=1e6) return s+'USD '+(a/1e6).toFixed(2)+'M';
+  if(a>=1000) return s+'USD '+Math.round(a/1000).toLocaleString('es-AR')+'k';
+  return s+'USD '+Math.round(a).toLocaleString('es-AR');
+};
+const pct = v => (v>=0?'+':'')+((v||0)*100).toFixed(1)+'%';
+const n = v => { const x=parseFloat(v); return isNaN(x)?0:x; };
+
+let charts={}, semanaActiva=1, DATA={};
+function killCharts(){ Object.values(charts).forEach(c=>{if(c)c.destroy()}); charts={}; }
+function showStatus(msg,type){
+  const el=document.getElementById('status-msg');
+  el.className='status '+type; el.innerHTML=msg;
+}
+
+const DISPONIBILIDADES=[
+  "Cheques en cartera","Banco Patagonia","Banco Francés","Banco Santander","Banco Galicia",
+  "Cobranza exportación (Estim.)","MI a cobrar (Acred. Galicia)","Divisas disponibles Patagonia",
+  "Divisas disponibles Francés","ME a cobrar","Inversiones - FCI"
+];
+const EROGACIONES=[
+  "Proveedores","Aranceles y Cánones","Comercio Exterior","Directores / Accionistas",
+  "Empresas del Grupo","Gastos de Buques","Impuestos y Tasas","RRHH",
+  "Servicios Varios","Retiros Particulares","Pago Importaciones",
+  "Compra Dólares (CCL)","Pago Préstamos"
+];
+const COLORS=['#1D9E75','#378ADD','#EF9F27','#E24B4A','#7F77DD','#D4537E','#4A7FA5','#BA7517','#5C8A6E','#888780','#C0392B','#9B4F9B','#F07C3A'];
+
+function parseSemana(wb,num){
+  const shName=`SEMANA_${num}`;
+  if(!wb.SheetNames.includes(shName)) return null;
+  const ws=wb.Sheets[shName];
+  const raw=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:null});
+  const disp=DISPONIBILIDADES.map((v,i)=>{
+    const r=raw[4+i]||[];
+    return {var:v,ini:n(r[1]),cie:n(r[2])};
+  });
+  let er_start=-1;
+  for(let i=0;i<raw.length;i++){
+    if(raw[i]?.[0]&&String(raw[i][0]).includes('EROGACIONES')){er_start=i+2;break;}
+  }
+  if(er_start<0) er_start=19;
+  const erog=EROGACIONES.map((v,i)=>{
+    const r=raw[er_start+i]||[];
+    return {rub:v,pres:n(r[1]),ejec:n(r[2])};
+  });
+  return {num,disp,erog};
+}
+
+function parseAll(wb){
+  return [1,2,3,4].map(n=>parseSemana(wb,n)).filter(Boolean);
+}
+
+function renderSemana(s){
+  const totDispIni=s.disp.reduce((a,d)=>a+d.ini,0);
+  const totDispCie=s.disp.reduce((a,d)=>a+d.cie,0);
+  const totErogPres=s.erog.reduce((a,e)=>a+e.pres,0);
+  const totErogEjec=s.erog.reduce((a,e)=>a+e.ejec,0);
+  const saldoNeto=totDispCie-totErogEjec;
+  const varDisp=totDispCie-totDispIni;
+
+  document.getElementById('kpis').innerHTML=[
+    {lbl:'Disponibilidades al cierre',val:usd(totDispCie),sub:'Inicio: '+usd(totDispIni)},
+    {lbl:'Variación disponibilidades',val:usd(varDisp),sub:totDispIni?pct(varDisp/Math.abs(totDispIni)):'–',col:varDisp>=0?'var(--teal)':'var(--red)'},
+    {lbl:'Erogaciones ejecutadas',val:usd(totErogEjec),sub:'Presupuestado: '+usd(totErogPres),col:'var(--red)'},
+    {lbl:'Desvío erogaciones',val:usd(totErogEjec-totErogPres),sub:totErogPres?pct((totErogEjec-totErogPres)/Math.abs(totErogPres)):'–',col:(totErogEjec-totErogPres)>0?'var(--red)':'var(--teal)'},
+    {lbl:'Saldo neto',val:usd(saldoNeto),sub:'Disponibilidades − erogaciones',col:saldoNeto>=0?'var(--teal)':'var(--red)'},
+  ].map(k=>`<div class="mc"><div class="ml">${k.lbl}</div><div class="mv" style="${k.col?'color:'+k.col:''}">${k.val}</div><div class="ms">${k.sub||''}</div></div>`).join('');
+
+  document.getElementById('disp-list').innerHTML=s.disp.map(d=>{
+    const v=d.cie-d.ini;
+    return `<div class="ri"><span class="rl">${d.var}</span><span class="rv">${usd(d.cie)}<span class="chip ${v>0?'chip-up':v<0?'chip-dn':'chip-flat'}">${v>=0?'+':''}${usd(v)}</span></span></div>`;
+  }).join('');
+  document.getElementById('disp-total').textContent=usd(totDispCie);
+
+  document.getElementById('erog-list').innerHTML=s.erog.map(e=>{
+    const dev=e.ejec-e.pres;
+    return `<div class="ri"><span class="rl">${e.rub}</span><span class="rv">${usd(e.ejec)}<span class="chip ${dev>0?'chip-dn':dev<0?'chip-up':'chip-flat'}">${dev>=0?'+':''}${usd(dev)}</span></span></div>`;
+  }).join('');
+  document.getElementById('erog-total').textContent=usd(totErogEjec);
+
+  const dispVars=s.disp.map(d=>d.cie-d.ini);
+  if(charts.cDisp) charts.cDisp.destroy();
+  charts.cDisp=new Chart(document.getElementById('cDisp'),{
+    type:'bar',
+    data:{labels:s.disp.map(d=>d.var.length>18?d.var.slice(0,16)+'…':d.var),
+      datasets:[{label:'Variación',data:dispVars,backgroundColor:dispVars.map(v=>v>=0?'#1D9E75':'#E24B4A'),borderRadius:3}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>usd(ctx.raw)}}},
+      scales:{x:{grid:{display:false},ticks:{font:{size:9},maxRotation:45}},
+              y:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:10},callback:v=>usd(v)}}}}
+  });
+
+  if(charts.cErog) charts.cErog.destroy();
+  charts.cErog=new Chart(document.getElementById('cErog'),{
+    type:'bar',
+    data:{labels:s.erog.map(e=>e.rub.length>14?e.rub.slice(0,12)+'…':e.rub),
+      datasets:[{label:'Presupuestado',data:s.erog.map(e=>e.pres),backgroundColor:'#378ADD',borderRadius:2},
+                {label:'Ejecutado',data:s.erog.map(e=>e.ejec),backgroundColor:'#E24B4A',borderRadius:2}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+usd(ctx.raw)}}},
+      scales:{x:{grid:{display:false},ticks:{font:{size:9},maxRotation:45}},
+              y:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:10},callback:v=>usd(v)}}}}
+  });
+}
+
+function renderResumen(semanas){
+  const labs=semanas.map(s=>`Semana ${s.num}`);
+  const totDisp=semanas.map(s=>s.disp.reduce((a,d)=>a+d.cie,0));
+  const totEjec=semanas.map(s=>s.erog.reduce((a,e)=>a+e.ejec,0));
+  const totPres=semanas.map(s=>s.erog.reduce((a,e)=>a+e.pres,0));
+  const saldos=semanas.map((s,i)=>totDisp[i]-totEjec[i]);
+  const totalEjec=totEjec.reduce((a,v)=>a+v,0);
+  const totalPres=totPres.reduce((a,v)=>a+v,0);
+
+  document.getElementById('kpis-res').innerHTML=[
+    {lbl:'Disp. promedio al cierre',val:usd(totDisp.reduce((a,v)=>a+v,0)/semanas.length)},
+    {lbl:'Total erogado en el mes',val:usd(totalEjec),col:'var(--red)'},
+    {lbl:'Presupuesto total mes',val:usd(totalPres)},
+    {lbl:'Desvío total mes',val:usd(totalEjec-totalPres),col:(totalEjec-totalPres)>0?'var(--red)':'var(--teal)'},
+  ].map(k=>`<div class="mc"><div class="ml">${k.lbl}</div><div class="mv" style="${k.col?'color:'+k.col:''}">${k.val}</div></div>`).join('');
+
+  if(charts.cResDisp) charts.cResDisp.destroy();
+  charts.cResDisp=new Chart(document.getElementById('cResDisp'),{
+    type:'line',
+    data:{labels:labs,datasets:DISPONIBILIDADES.map((v,i)=>({
+      label:v,data:semanas.map(s=>s.disp[i]?.cie||0),
+      borderColor:COLORS[i%COLORS.length],borderWidth:1.5,pointRadius:4,tension:0.3,fill:false
+    }))},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{grid:{display:false},ticks:{font:{size:10}}},
+              y:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:10},callback:v=>usd(v)}}}}
+  });
+
+  if(charts.cResErog) charts.cResErog.destroy();
+  charts.cResErog=new Chart(document.getElementById('cResErog'),{
+    type:'bar',
+    data:{labels:labs,datasets:EROGACIONES.map((r,i)=>({
+      label:r,data:semanas.map(s=>s.erog[i]?.ejec||0),
+      backgroundColor:COLORS[i%COLORS.length],borderRadius:2
+    }))},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:10}}},
+              y:{stacked:true,grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:10},callback:v=>usd(v)}}}}
+  });
+
+  if(charts.cResSaldo) charts.cResSaldo.destroy();
+  charts.cResSaldo=new Chart(document.getElementById('cResSaldo'),{
+    type:'bar',
+    data:{labels:labs,datasets:[{label:'Saldo neto',data:saldos,
+      backgroundColor:saldos.map(v=>v>=0?'#1D9E75':'#E24B4A'),borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>usd(ctx.raw)}}},
+      scales:{x:{grid:{display:false},ticks:{font:{size:10}}},
+              y:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:10},callback:v=>usd(v)}}}}
+  });
+
+  document.getElementById('erog-mes-list').innerHTML=EROGACIONES.map((r,i)=>{
+    const tot=semanas.reduce((a,s)=>a+(s.erog[i]?.ejec||0),0);
+    const pres=semanas.reduce((a,s)=>a+(s.erog[i]?.pres||0),0);
+    const dev=tot-pres;
+    return tot>0?`<div class="ri"><span class="rl">${r}</span><span class="rv">${usd(tot)}<span class="chip ${dev>0?'chip-dn':dev<0?'chip-up':'chip-flat'}">${dev>=0?'+':''}${usd(dev)}</span></span></div>`:'';
+  }).join('');
+
+  const pveTot=EROGACIONES.map((_,i)=>semanas.reduce((a,s)=>a+(s.erog[i]?.ejec||0),0));
+  const pvePres=EROGACIONES.map((_,i)=>semanas.reduce((a,s)=>a+(s.erog[i]?.pres||0),0));
+  if(charts.cResPvE) charts.cResPvE.destroy();
+  charts.cResPvE=new Chart(document.getElementById('cResPvE'),{
+    type:'bar',
+    data:{labels:EROGACIONES.map(r=>r.length>14?r.slice(0,12)+'…':r),
+      datasets:[{label:'Presupuestado',data:pvePres,backgroundColor:'#378ADD',borderRadius:2},
+                {label:'Ejecutado',data:pveTot,backgroundColor:'#E24B4A',borderRadius:2}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+usd(ctx.raw)}}},
+      scales:{x:{grid:{display:false},ticks:{font:{size:9},maxRotation:45}},
+              y:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:10},callback:v=>usd(v)}}}}
+  });
+}
+
+function setSemana(num){
+  semanaActiva=num;
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',i===(num===0?4:num-1)));
+  const vs=document.getElementById('vista-semana');
+  const vr=document.getElementById('vista-resumen');
+  if(num===0){
+    vs.classList.add('hidden');vr.classList.remove('hidden');
+    if(DATA.semanas) renderResumen(DATA.semanas);
+  } else {
+    vs.classList.remove('hidden');vr.classList.add('hidden');
+    const s=DATA.semanas?.find(s=>s.num===num);
+    if(s) renderSemana(s);
+  }
+}
+
+function processBuffer(buffer,source){
+  try{
+    killCharts();
+    const wb=XLSX.read(buffer,{type:'array',cellDates:true});
+    const semanas=parseAll(wb);
+    if(!semanas.length) throw new Error('No encontré hojas SEMANA_X en el archivo.');
+    DATA.semanas=semanas;
+    document.getElementById('dash-content').classList.remove('hidden');
+    setSemana(1);
+    showStatus(`✅ Cargado desde ${source} — ${semanas.length} semanas`,'ok');
+    document.getElementById('auto-icon').textContent='✅';
+    document.getElementById('auto-msg').textContent=`Análisis cargado — ${semanas.length} semanas`;
+  }catch(err){
+    showStatus('❌ Error: '+err.message,'err');
+    document.getElementById('auto-icon').textContent='⚠️';
+    document.getElementById('auto-msg').textContent='No se pudo cargar el archivo';
+  }
+}
+
+function processFile(file){
+  if(!file||!file.name.endsWith('.xlsx')){showStatus('❌ El archivo debe ser .xlsx','err');return;}
+  showStatus('⏳ Leyendo archivo...','load');
+  const reader=new FileReader();
+  reader.onload=e=>processBuffer(new Uint8Array(e.target.result),file.name);
+  reader.readAsArrayBuffer(file);
+}
+
+function getGithubRawUrl(){
+  const host=window.location.hostname;
+  const path=window.location.pathname;
+  if(!host.endsWith('github.io')) return null;
+  const user=host.replace('.github.io','');
+  const repo=path.split('/').filter(Boolean)[0]||'';
+  if(!user||!repo) return null;
+  return `https://raw.githubusercontent.com/${user}/${repo}/main/analisis_semanal.xlsx`;
+}
+
+async function autoLoad(){
+  const url=getGithubRawUrl();
+  if(!url){
+    document.getElementById('auto-icon').textContent='📂';
+    document.getElementById('auto-msg').textContent='Subí el archivo analisis_semanal.xlsx para ver el dashboard';
+    return;
+  }
+  try{
+    const res=await fetch(url+'?t='+Date.now());
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const buffer=await res.arrayBuffer();
+    processBuffer(new Uint8Array(buffer),'GitHub');
+  }catch(err){
+    document.getElementById('auto-icon').textContent='⚠️';
+    document.getElementById('auto-msg').textContent='No se pudo cargar automáticamente — usá el botón manual';
+  }
+}
+
+document.getElementById('file-input').addEventListener('change',e=>processFile(e.target.files[0]));
+document.getElementById('fecha-badge').textContent=new Date().toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric'});
+autoLoad();
+</script>
+</body>
+</html>
